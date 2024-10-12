@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Valve Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        .slider-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+        }
+        .slider-label {
+            font-size: 20px;
+            margin-right: 10px;
+        }
+        .slider {
+            position: relative;
+            width: 60px;
+            height: 34px;
+        }
+        .slider input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+        .slider-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider-slider {
+            background-color: #4CAF50;
+        }
+        input:checked + .slider-slider:before {
+            transform: translateX(26px);
+        }
+        .status {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Water Valve Control</h1>
+    <div class="slider-container">
+        <span class="slider-label">Valve State</span>
+        <label class="slider">
+            <input type="checkbox" id="valveSlider">
+            <span class="slider-slider"></span>
+        </label>
+    </div>
+    <p class="status">Current state: <span id="currentState">Off</span></p>
+
+    <script>
+        const valveSlider = document.getElementById('valveSlider');
+        const currentStateDisplay = document.getElementById('currentState');
+        let currentState = 'Off';
+
+        // Function to send the valve state to the Flask server
+        function sendValveState(state) {
+            fetch('/api/control_valve', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    tank_id: 1,  // Assuming we're controlling tank 1, adjust as needed
+                    command: state
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    currentStateDisplay.textContent = state;
+                } else {
+                    console.error('Error sending valve state:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        // Function to fetch the current valve state from the server
+        function fetchCurrentValveState() {
+            fetch('/api/get_valve_state/1')  // Assuming tank_id = 1, adjust as needed
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        currentState = data.valve_state;
+                        valveSlider.checked = currentState === 'On';
+                        currentStateDisplay.textContent = currentState;
+                    } else {
+                        console.error('Error fetching valve state:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching valve state:', error);
+                });
+        }
+
+        // Toggle the valve state when the slider is clicked
+        valveSlider.addEventListener('change', function() {
+            if (this.checked) {
+                currentState = 'On';
+            } else {
+                currentState = 'Off';
+            }
+            sendValveState(currentState);
+        });
+
+        // Periodically fetch the current valve state from the server
+        setInterval(fetchCurrentValveState, 5000);  // Poll every 5 seconds
+
+        // Fetch the initial valve state when the page loads
+        window.onload = fetchCurrentValveState;
+    </script>
+</body>
+</html>
